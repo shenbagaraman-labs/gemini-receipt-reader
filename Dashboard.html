@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Receipts">
+  <meta name="theme-color" content="#111827">
+  <title>Receipts</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --ink: #111827;
+      --ink-dim: #6b7280;
+      --line: #e5e7eb;
+      --accent: #2563eb;
+      --ok: #15803d;
+      --warn: #b45309;
+      --bad: #b91c1c;
+      --tabbar-h: 58px;
+      --header-h: 52px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--bg); color: var(--ink);
+      font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    #header {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+      background: var(--card); border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; padding: 0 12px; z-index: 10;
+      padding-top: env(safe-area-inset-top); height: calc(var(--header-h) + env(safe-area-inset-top));
+    }
+    #backBtn {
+      display: none; background: none; border: none; color: var(--accent);
+      font-size: 16px; padding: 8px 10px 8px 0; cursor: pointer;
+    }
+    #backBtn.show { display: block; }
+    #headerTitle { font-size: 17px; font-weight: 600; flex: 1; }
+    #app {
+      position: absolute; top: calc(var(--header-h) + env(safe-area-inset-top));
+      bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+      left: 0; right: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 10px 12px 24px;
+    }
+    #tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; height: var(--tabbar-h);
+      padding-bottom: env(safe-area-inset-bottom);
+      background: var(--card); border-top: 1px solid var(--line);
+      display: flex; z-index: 10;
+    }
+    .tabbtn {
+      flex: 1; border: none; background: none; color: var(--ink-dim);
+      font-size: 11px; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 2px; cursor: pointer; padding: 6px 0 2px;
+    }
+    .tabbtn .ic { font-size: 19px; }
+    .tabbtn.active { color: var(--accent); font-weight: 600; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 8px;
+    }
+    .row {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 10px;
+    }
+    .row + .row { margin-top: 2px; }
+    .tappable { cursor: pointer; }
+    .tappable:active { background: #f0f1f3; }
+    .title { font-weight: 600; font-size: 15px; }
+    .sub { color: var(--ink-dim); font-size: 13px; margin-top: 2px; }
+    .amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .chev { color: #c7cad1; font-size: 15px; margin-left: 4px; }
+    .muted { color: var(--ink-dim); }
+    .empty { text-align: center; color: var(--ink-dim); padding: 40px 20px; font-size: 14px; }
+    .section-label {
+      font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--ink-dim); margin: 14px 2px 6px;
+    }
+    .section-label:first-child { margin-top: 2px; }
+
+    input[type=search], input[type=text] {
+      width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+      background: var(--card); font-size: 15px; color: var(--ink);
+    }
+    input[type=search]:focus, input[type=text]:focus { outline: 2px solid var(--accent); }
+
+    .filterRow { display: flex; gap: 8px; margin-bottom: 10px; }
+    .filterRow select {
+      flex: 1; min-width: 0; padding: 10px 8px; border-radius: 10px; border: 1px solid var(--line);
+      background: var(--card); font-size: 14px; color: var(--ink);
+      -webkit-appearance: none; appearance: none;
+    }
+    .filterRow select:focus { outline: 2px solid var(--accent); }
+
+    .pill {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px;
+      border-radius: 999px; background: #eef2ff; color: var(--accent);
+    }
+    .pill.ok { background: #ecfdf3; color: var(--ok); }
+    .pill.warn { background: #fffbeb; color: var(--warn); }
+    .pill.bad { background: #fef2f2; color: var(--bad); }
+
+    .itemline { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); gap: 10px; }
+    .itemline:last-child { border-bottom: none; }
+    .itemline .name { font-size: 14px; }
+    .itemline .name .raw { color: var(--ink-dim); font-size: 12px; display: block; }
+    .itemline .price { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 14px; }
+
+    .spinner {
+      margin: 40px auto; width: 26px; height: 26px; border-radius: 50%;
+      border: 3px solid var(--line); border-top-color: var(--accent);
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    a.pdfLink {
+      display: inline-block; margin-top: 10px; color: var(--accent); font-size: 14px; font-weight: 600;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <button id="backBtn" onclick="goBack()">&#8249; Back</button>
+    <div id="headerTitle">Receipts</div>
+  </div>
+
+  <div id="app"><div class="spinner"></div></div>
+
+  <div id="tabbar">
+    <button class="tabbtn" data-tab="browse" onclick="switchTab('browse')">
+      <span class="ic">&#128197;</span><span>Browse</span>
+    </button>
+    <button class="tabbtn" data-tab="categories" onclick="switchTab('categories')">
+      <span class="ic">&#128202;</span><span>Categories</span>
+    </button>
+    <button class="tabbtn" data-tab="stores" onclick="switchTab('stores')">
+      <span class="ic">&#127978;</span><span>Stores</span>
+    </button>
+    <button class="tabbtn" data-tab="search" onclick="switchTab('search')">
+      <span class="ic">&#128269;</span><span>Search</span>
+    </button>
+  </div>
+
+<script>
+  // ------------------------------------------------------------------
+  // Tiny hand-rolled router: one stack per tab, each entry is a "screen".
+  // ------------------------------------------------------------------
+  var GBP = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' });
+  function money(n) { return GBP.format(Number(n) || 0); }
+
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var today = new Date();
+  var DEFAULT_YEAR = today.getFullYear();
+  var DEFAULT_MONTH = today.getMonth() + 1;
+
+  var stacks = {
+    browse: [{ screen: 'years' }],
+    categories: [{ screen: 'categoryList', year: DEFAULT_YEAR, month: DEFAULT_MONTH }],
+    stores: [{ screen: 'storeList' }],
+    search: [{ screen: 'searchBox' }]
+  };
+  var currentTab = 'browse';
+  var storesCache = null; // loaded once, filtered client-side
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tabbtn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    render();
+  }
+
+  function pushScreen(screen) {
+    stacks[currentTab].push(screen);
+    render();
+  }
+
+  function goBack() {
+    var stack = stacks[currentTab];
+    if (stack.length > 1) stack.pop();
+    render();
+  }
+
+  function setHeader(title, showBack) {
+    document.getElementById('headerTitle').textContent = title;
+    document.getElementById('backBtn').classList.toggle('show', !!showBack);
+  }
+
+  // Shows a spinner in `el` (default #app) and, if nothing has replaced it
+  // within `ms`, swaps in a "taking a while / tap to retry" message instead
+  // of leaving a spinner running forever — covers a slow or dropped
+  // request, not just a thrown error (which showError already handles).
+  function showLoading(el, ms) {
+    el = el || document.getElementById('app');
+    el.innerHTML = '<div class="spinner"></div>';
+    setTimeout(function () {
+      if (el.querySelector('.spinner')) {
+        el.innerHTML = '<div class="empty">This is taking longer than expected.<br><br>' +
+          '<span class="tappable" style="color:#2563eb;font-weight:600" onclick="render()">Tap to retry</span></div>';
+      }
+    }, ms || 15000);
+  }
+
+  function escapeHtml(s) {
+    return (s === null || s === undefined ? '' : String(s))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Safely embeds a JS value (string/number/object) inside an HTML
+  // attribute like onclick="...". JSON.stringify handles JS-level escaping;
+  // swapping the surrounding/embedded double quotes for &quot; keeps the
+  // attribute delimiters intact — the browser un-escapes them back to `"`
+  // before the onclick text is parsed as JS, so the round trip is exact.
+  function attrJson(obj) {
+    return JSON.stringify(obj).replace(/"/g, '&quot;');
+  }
+
+  function statusPillClass(status) {
+    var s = (status || '').toString().toLowerCase();
+    if (s.indexOf('ok') !== -1 || s.indexOf('match') !== -1 || s.indexOf('approved') !== -1) return 'ok';
+    if (s.indexOf('error') !== -1 || s.indexOf('mismatch') !== -1 || s.indexOf('fail') !== -1) return 'bad';
+    if (!s) return '';
+    return 'warn';
+  }
+
+  // ------------------------------------------------------------------
+  // Render dispatch
+  // ------------------------------------------------------------------
+  function render() {
+    var top = stacks[currentTab][stacks[currentTab].length - 1];
+    var showBack = stacks[currentTab].length > 1;
+    if (top.screen === 'years') renderYears(showBack);
+    else if (top.screen === 'months') renderMonths(top.year, showBack);
+    else if (top.screen === 'receiptList') renderReceiptList(top.title, top.loader, showBack);
+    else if (top.screen === 'receiptDetail') renderReceiptDetail(top.id, showBack);
+    else if (top.screen === 'storeList') renderStoreList(showBack);
+    else if (top.screen === 'searchBox') renderSearchBox(showBack, top.query || '');
+    else if (top.screen === 'categoryList') renderCategoryList(showBack, top.year, top.month);
+    else if (top.screen === 'categoryItems') renderCategoryItems(top.title, top.category, top.year, top.month, showBack);
+  }
+
+  // ------------------------------------------------------------------
+  // Browse: Years -> Months -> Receipts -> Detail
+  // ------------------------------------------------------------------
+  function renderYears(showBack) {
+    setHeader('Browse by year', showBack);
+    showLoading();
+    google.script.run.withSuccessHandler(function (years) {
+      try {
+        var app = document.getElementById('app');
+        if (!years || !years.length) { app.innerHTML = '<div class="empty">No receipts logged yet.</div>'; return; }
+        var html = '';
+        years.forEach(function (y) {
+          html += '<div class="card tappable row" onclick="pushScreen(' + attrJson({ screen: 'months', year: y.year }) + ')">' +
+            '<div><div class="title">' + y.year + '</div><div class="sub">' + y.count + ' receipt' + (y.count === 1 ? '' : 's') + '</div></div>' +
+            '<div class="amt">' + money(y.total) + '<span class="chev">&#8250;</span></div>' +
+            '</div>';
+        });
+        app.innerHTML = html;
+      } catch (e) { showError(e); }
+    }).withFailureHandler(showError).getYearsSummary();
+  }
+
+  function renderMonths(year, showBack) {
+    setHeader(String(year), showBack);
+    showLoading();
+    google.script.run.withSuccessHandler(function (months) {
+      try {
+        var app = document.getElementById('app');
+        if (!months || !months.length) { app.innerHTML = '<div class="empty">No receipts in ' + year + '.</div>'; return; }
+        var html = '';
+        months.forEach(function (m) {
+          var label = MONTH_NAMES[m.month - 1] + ' ' + year;
+          var screenObj = { screen: 'receiptList', title: label, loader: { type: 'month', year: year, month: m.month } };
+          html += '<div class="card tappable row" onclick="pushScreen(' + attrJson(screenObj) + ')">' +
+            '<div><div class="title">' + MONTH_NAMES[m.month - 1] + '</div><div class="sub">' + m.count + ' receipt' + (m.count === 1 ? '' : 's') + '</div></div>' +
+            '<div class="amt">' + money(m.total) + '<span class="chev">&#8250;</span></div>' +
+            '</div>';
+        });
+        app.innerHTML = html;
+      } catch (e) { showError(e); }
+    }).withFailureHandler(showError).getMonthsForYear(year);
+  }
+
+  function renderReceiptList(title, loader, showBack) {
+    setHeader(title, showBack);
+    showLoading();
+    var handler = google.script.run.withSuccessHandler(function (receipts) {
+      try {
+        var app = document.getElementById('app');
+        if (!receipts || !receipts.length) { app.innerHTML = '<div class="empty">No receipts here.</div>'; return; }
+        var html = '';
+        receipts.forEach(function (r) {
+          html += receiptRowHtml_(r);
+        });
+        app.innerHTML = html;
+      } catch (e) { showError(e); }
+    }).withFailureHandler(showError);
+
+    if (loader.type === 'month') handler.getReceiptsForMonth(loader.year, loader.month);
+    else if (loader.type === 'store') handler.getReceiptsByStore(loader.store);
+  }
+
+  function receiptRowHtml_(r) {
+    var pill = r.reviewStatus ? '<span class="pill ' + statusPillClass(r.reviewStatus) + '">' + escapeHtml(r.reviewStatus) + '</span>' : '';
+    return '<div class="card tappable row" onclick="pushScreen(' + attrJson({ screen: 'receiptDetail', id: r.id }) + ')">' +
+      '<div><div class="title">' + escapeHtml(r.store || 'Unknown store') + '</div>' +
+      '<div class="sub">' + escapeHtml(r.date) + (r.time ? ' &middot; ' + escapeHtml(r.time) : '') + (pill ? ' &middot; ' + pill : '') + '</div></div>' +
+      '<div class="amt">' + money(r.total) + '<span class="chev">&#8250;</span></div>' +
+      '</div>';
+  }
+
+  function renderReceiptDetail(id, showBack) {
+    setHeader('Receipt', showBack);
+    showLoading();
+    google.script.run.withSuccessHandler(function (r) {
+      try {
+        if (!r) {
+          showError({ message: 'No data came back for this receipt (id: ' + id + '). Check the Apps Script Executions log for the real cause.' });
+          return;
+        }
+        var app = document.getElementById('app');
+        var itemsHtml = '';
+        (r.items || []).forEach(function (it) {
+          var sub = [];
+          if (it.myName && it.itemName && it.myName !== it.itemName) sub.push(it.itemName);
+          if (it.category) sub.push(it.category);
+          itemsHtml += '<div class="itemline"><div class="name">' +
+            escapeHtml(it.myName || it.itemName || 'Item') +
+            (sub.length ? '<span class="raw">' + escapeHtml(sub.join(' · ')) + '</span>' : '') +
+            '</div><div class="price">' + (it.qty && it.qty != 1 ? it.qty + ' &times; ' : '') + money(it.itemPrice) + '</div></div>';
+        });
+
+        var payHtml = '';
+        if (r.payment && (r.payment.method || r.payment.cardType)) {
+          payHtml = '<div class="section-label">Payment</div><div class="card">' +
+            '<div class="row"><span class="muted">Method</span><span>' + escapeHtml(r.payment.method || '&mdash;') + '</span></div>' +
+            (r.payment.cardType ? '<div class="row"><span class="muted">Card</span><span>' + escapeHtml(r.payment.cardType) + (r.payment.cardNumber ? ' &bull;&bull;&bull;&bull; ' + escapeHtml(r.payment.cardNumber) : '') + '</span></div>' : '') +
+            '</div>';
+        }
+
+        var pill = r.reviewStatus ? '<span class="pill ' + statusPillClass(r.reviewStatus) + '">' + escapeHtml(r.reviewStatus) + '</span>' : '';
+
+        app.innerHTML =
+          '<div class="card">' +
+          '<div class="title" style="font-size:17px">' + escapeHtml(r.store || 'Unknown store') + '</div>' +
+          '<div class="sub">' + escapeHtml(r.date) + (r.time ? ' &middot; ' + escapeHtml(r.time) : '') + '</div>' +
+          (pill ? '<div style="margin-top:6px">' + pill + '</div>' : '') +
+          (r.reviewNotes ? '<div class="sub" style="margin-top:6px">' + escapeHtml(r.reviewNotes) + '</div>' : '') +
+          (r.pdfLink ? '<a class="pdfLink" href="' + escapeHtml(r.pdfLink) + '" target="_blank" rel="noopener">View original receipt &#8250;</a>' : '') +
+          '</div>' +
+          '<div class="section-label">Items (' + (r.items || []).length + ')</div>' +
+          '<div class="card">' + (itemsHtml || '<div class="muted" style="padding:8px 0">No line items recorded.</div>') + '</div>' +
+          '<div class="card row" style="margin-top:8px"><span class="muted">Total</span><span class="amt">' + money(r.total) + '</span></div>' +
+          payHtml;
+      } catch (e) { showError(e); }
+    }).withFailureHandler(showError).getReceiptDetail(id);
+  }
+
+  // ------------------------------------------------------------------
+  // Stores tab
+  // ------------------------------------------------------------------
+  function renderStoreList(showBack) {
+    setHeader('Stores', showBack);
+    if (storesCache) { paintStoreList_(storesCache, ''); return; }
+    showLoading();
+    google.script.run.withSuccessHandler(function (stores) {
+      try {
+        storesCache = stores || [];
+        paintStoreList_(storesCache, '');
+      } catch (e) { showError(e); }
+    }).withFailureHandler(showError).getStores();
+  }
+
+  function paintStoreList_(stores, filterText) {
+    stores = stores || [];
+    var app = document.getElementById('app');
+    var q = filterText.trim().toLowerCase();
+    var filtered = q ? stores.filter(function (s) { return s.store.toLowerCase().indexOf(q) !== -1; }) : stores;
+
+    var html = '<input type="search" id="storeFilter" placeholder="Filter stores&hellip;" value="' + escapeHtml(filterText) + '" oninput="paintStoreList_(storesCache, this.value)" style="margin-bottom:10px">';
+    if (!filtered.length) {
+      html += '<div class="empty">No matching stores.</div>';
+    } else {
+      filtered.forEach(function (s) {
+        var screenObj = { screen: 'receiptList', title: s.store, loader: { type: 'store', store: s.store } };
+        html += '<div class="card tappable row" onclick="pushScreen(' + attrJson(screenObj) + ')">' +
+          '<div class="title">' + escapeHtml(s.store) + '</div>' +
+          '<div class="sub" style="margin:0">' + s.count + '<span class="chev">&#8250;</span></div>' +
+          '</div>';
+      });
+    }
+    app.innerHTML = html;
+    var input = document.getElementById('storeFilter');
+    if (input) { input.focus(); input.selectionStart = input.selectionEnd = input.value.length; }
+  }
+
+  // ------------------------------------------------------------------
+  // Categories tab — "where is my money actually going"
+  // ------------------------------------------------------------------
+  var categoryYearsCache = null; // years list from getYearsSummary(), loaded once and reused
+
+  function renderCategoryList(showBack, year, month) {
+    setHeader('Categories', showBack);
+    if (categoryYearsCache) {
+      paintCategoryFilter_(categoryYearsCache, year, month);
+    } else {
+      showLoading();
+      google.script.run.withSuccessHandler(function (years) {
+        try {
+          categoryYearsCache = years || [];
+          paintCategoryFilter_(categoryYearsCache, year, month);
+        } catch (e) { showError(e); }
+      }).withFailureHandler(showError).getYearsSummary();
+    }
+  }
+
+  function paintCategoryFilter_(years, year, month) {
+    var app = document.getElementById('app');
+
+    var yearOptions = '<option value="ALL"' + (year === 'ALL' ? ' selected' : '') + '>All years</option>';
+    years.forEach(function (y) {
+      yearOptions += '<option value="' + y.year + '"' + (String(year) === String(y.year) ? ' selected' : '') + '>' + y.year + '</option>';
+    });
+    // The default (current) year may not have any receipts yet — still
+    // offer it as a selectable option rather than silently falling back.
+    if (year !== 'ALL' && !years.some(function (y) { return String(y.year) === String(year); })) {
+      yearOptions = '<option value="' + year + '" selected>' + year + '</option>' + yearOptions;
+    }
+
+    var monthOptions = '<option value="ALL"' + (month === 'ALL' ? ' selected' : '') + '>All months</option>';
+    MONTH_NAMES.forEach(function (name, idx) {
+      var mNum = idx + 1;
+      monthOptions += '<option value="' + mNum + '"' + (String(month) === String(mNum) ? ' selected' : '') + '>' + name + '</option>';
+    });
+
+    app.innerHTML =
+      '<div class="filterRow">' +
+      '<select id="catYearSelect" onchange="onCategoryFilterChange()">' + yearOptions + '</select>' +
+      '<select id="catMonthSelect" onchange="onCategoryFilterChange()">' + monthOptions + '</select>' +
+      '</div>' +
+      '<div id="categoryListBody"><div class="spinner"></div></div>';
+
+    loadCategoryList_(year, month);
+  }
+
+  function onCategoryFilterChange() {
+    var y = document.getElementById('catYearSelect').value;
+    var m = document.getElementById('catMonthSelect').value;
+    var top = stacks.categories[stacks.categories.length - 1];
+    top.year = y;
+    top.month = m;
+    loadCategoryList_(y, m);
+  }
+
+  function loadCategoryList_(year, month) {
+    var body = document.getElementById('categoryListBody');
+    showLoading(body, 15000);
+    google.script.run.withSuccessHandler(function (result) {
+      try {
+        result = result || { total: 0, categories: [] };
+        var cats = result.categories || [];
+        var html = '<div class="card row" style="margin-bottom:10px"><span class="muted">Total</span><span class="amt">' + money(result.total) + '</span></div>';
+        if (!cats.length) {
+          html += '<div class="empty">No categorized items for this period.</div>';
+        } else {
+          cats.forEach(function (c) {
+            var screenObj = { screen: 'categoryItems', title: c.category, category: c.category, year: year, month: month };
+            html += '<div class="card tappable row" onclick="pushScreen(' + attrJson(screenObj) + ')">' +
+              '<div><div class="title">' + escapeHtml(c.category) + '</div><div class="sub">' + c.count + ' item' + (c.count === 1 ? '' : 's') + '</div></div>' +
+              '<div class="amt">' + money(c.total) + '<span class="chev">&#8250;</span></div>' +
+              '</div>';
+          });
+        }
+        body.innerHTML = html;
+      } catch (e) { showError(e, body); }
+    }).withFailureHandler(function (err) { showError(err, body); }).getCategoriesSummary(year, month);
+  }
+
+  function renderCategoryItems(title, category, year, month, showBack) {
+    setHeader(title, showBack);
+    showLoading();
+    google.script.run.withSuccessHandler(function (items) {
+      try {
+        var app = document.getElementById('app');
+        items = items || [];
+        if (!items.length) { app.innerHTML = '<div class="empty">No items here.</div>'; return; }
+        var total = items.reduce(function (sum, it) { return sum + (it.totalPrice || 0); }, 0);
+        var html = '<div class="card row" style="margin-bottom:10px"><span class="muted">Total</span><span class="amt">' + money(total) + '</span></div>';
+        html += '<div class="card">';
+        items.forEach(function (it) {
+          html += '<div class="itemline tappable" onclick="pushScreen(' + attrJson({ screen: 'receiptDetail', id: it.id }) + ')">' +
+            '<div class="name">' + escapeHtml(it.myName || it.itemName) +
+            '<span class="raw">' + escapeHtml(it.store) + ' &middot; ' + escapeHtml(it.date) + '</span></div>' +
+            '<div class="price">' + money(it.totalPrice) + '</div></div>';
+        });
+        html += '</div>';
+        app.innerHTML = html;
+      } catch (e) { showError(e); }
+    }).withFailureHandler(showError).getItemsByCategory(category, year, month);
+  }
+
+  // ------------------------------------------------------------------
+  // Search items tab
+  // ------------------------------------------------------------------
+  var searchDebounce = null;
+
+  function renderSearchBox(showBack, currentQuery) {
+    setHeader('Search items', showBack);
+    var app = document.getElementById('app');
+    app.innerHTML =
+      '<input type="search" id="itemSearch" placeholder="e.g. milk, parking, fuel&hellip;" value="' + escapeHtml(currentQuery) + '" oninput="onSearchInput(this.value)">' +
+      '<div id="searchResults" style="margin-top:12px"></div>';
+    var input = document.getElementById('itemSearch');
+    input.focus();
+    input.selectionStart = input.selectionEnd = input.value.length;
+    if (currentQuery) runSearch_(currentQuery);
+  }
+
+  function onSearchInput(val) {
+    stacks.search[stacks.search.length - 1].query = val;
+    clearTimeout(searchDebounce);
+    if (!val.trim()) { document.getElementById('searchResults').innerHTML = ''; return; }
+    searchDebounce = setTimeout(function () { runSearch_(val); }, 300);
+  }
+
+  function runSearch_(query) {
+    var box = document.getElementById('searchResults');
+    showLoading(box, 15000);
+    google.script.run.withSuccessHandler(function (result) {
+      try {
+        // Ignore stale responses if the query box has since changed.
+        var liveQuery = (document.getElementById('itemSearch') || {}).value;
+        if (liveQuery !== query) return;
+        paintSearchResults_(result || { matches: [], groups: [] });
+      } catch (e) { showError(e, box); }
+    }).withFailureHandler(function (err) { showError(err, box); }).searchItems(query);
+  }
+
+  function paintSearchResults_(result) {
+    var box = document.getElementById('searchResults');
+    if (!result.groups || !result.groups.length) { box.innerHTML = '<div class="empty">No items match.</div>'; return; }
+
+    var html = '<div class="section-label">Price range by item</div>';
+    result.groups.forEach(function (g) {
+      html += '<div class="card">' +
+        '<div class="row"><div class="title">' + escapeHtml(g.name) + '</div><div class="sub" style="margin:0">' + g.count + ' purchase' + (g.count === 1 ? '' : 's') + '</div></div>' +
+        '<div class="row" style="margin-top:6px">' +
+        '<span class="sub">' + (g.min === g.max ? money(g.min) : money(g.min) + ' &ndash; ' + money(g.max)) + '</span>' +
+        (g.latest ? '<span class="sub">last: ' + escapeHtml(g.latest.date) + ' at ' + escapeHtml(g.latest.store) + '</span>' : '') +
+        '</div></div>';
+    });
+
+    html += '<div class="section-label">All matching purchases</div><div class="card">';
+    (result.matches || []).forEach(function (m) {
+      html += '<div class="itemline tappable" onclick="pushScreen(' + attrJson({ screen: 'receiptDetail', id: m.id }) + ')">' +
+        '<div class="name">' + escapeHtml(m.myName || m.itemName) +
+        '<span class="raw">' + escapeHtml(m.store) + ' &middot; ' + escapeHtml(m.date) + (m.category ? ' &middot; ' + escapeHtml(m.category) : '') + '</span></div>' +
+        '<div class="price">' + money(m.itemPrice) + '</div></div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+  }
+
+  // ------------------------------------------------------------------
+  function showError(err, el) {
+    el = el || document.getElementById('app');
+    el.innerHTML =
+      '<div class="empty">Something went wrong loading this.<br><span style="font-size:12px">' +
+      escapeHtml((err && err.message) || err) + '</span><br><br>' +
+      '<span class="tappable" style="color:#2563eb;font-weight:600" onclick="render()">Tap to retry</span></div>';
+  }
+
+  // Boot
+  switchTab('browse');
+</script>
+</body>
+</html>
