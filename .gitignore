@@ -1,0 +1,12 @@
+# clasp (Apps Script CLI) - contains your actual script ID, don't publish it
+.clasp.json
+
+# clasp's local pull of compiled/build artifacts, if you ever generate them
+.clasprc.json
+build/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
