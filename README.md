@@ -5,7 +5,7 @@ parking, and fuel receipts using the Gemini API, logs everything to a Google
 Sheet, and files the original PDFs/images into dated Drive folders. Includes
 a read-only mobile dashboard for browsing spend on the go.
 
-Written up in more detail here: **[Medium article link]**
+Written up in more detail here: **[How I Automated Years of Receipts with Gemini, Next Stop Is Google’s Antigravity](https://medium.com/@shenbagaraman_23832/how-i-automated-years-of-receipts-with-gemini-next-stop-is-googles-antigravity-93be38edb312)**
 
 ## How it works
 
